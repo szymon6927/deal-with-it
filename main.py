@@ -7,41 +7,55 @@ import numpy as np
 
 import moviepy.editor as mpy
 
+
+class DealWithIt(object):
+
+    MAX_WIDTH = 500
+
+    def __init__(self):
+        self.detector = dlib.get_frontal_face_detector()
+        self.predictor = dlib.shape_predictor('shape_predictor_68.dat')
+        self.deal_text_img = Image.open("helpers-img/text.png")
+        self.glass_img = Image.open("helpers-img/deals.png")
+        self.img = None
+        self.img_width = None
+        self.img_height = None
+
+    def set_image_path(self, path):
+        self.img = Image.open(path)
+
+    def set_width_and_height(self):
+        self.img_width, self.img_height = self.img
+        print("Width of image is: {0}".format(self.img_width))
+        print("Height of image is: {0}".format(self.img_height))
+
+    def scale_img(self):
+        if self.img_width > 500:
+            scaled_height = int(self.MAX_WIDTH * self.img_width / self.img_height)
+            print("Scaled height is: {0}".format(scaled_height))
+            self.img.thumbnail((self.MAX_WIDTH, scaled_height))
+
+    def convert_to_greyscale(self):
+        img_grey = self.img.convert("L")
+        return np.array(img_grey)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-image", required=True, help="path to input image")
+parser.add_argument("-output", required=True, help="name of output gif")
 args = parser.parse_args()
 
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor('shape_predictor_68.dat')
-
-MAX_WIDTH = 500
-DEAL_TEXT_IMG = Image.open("helpers-img/text.png")
-GLASS_IMG = Image.open("helpers-img/deals.png")
-
-img = Image.open(args.image)
-img_width, img_height = img.size
-print("Width of image is: {0}".format(img_width))
-print("Height of image is: {0}".format(img_height))
-
-if img_width > 500:
-    scaled_height = int(MAX_WIDTH * img_height / img_width)
-    print("Scaled height is: {0}".format(scaled_height))
-
-    img.thumbnail((MAX_WIDTH, scaled_height))
-    img.save("images/scaled_img.jpg")
-
-img_scaled = Image.open("images/scaled_img.jpg")
-img_grey = img_scaled.convert("L")
-img_grey.save("images/greyscale_img.jpg")
-
-grey_img_arr = np.array(img_grey)
 
 dets = detector(grey_img_arr)
+
+faces = []
 
 if len(dets) > 0:
     print("Find {} faces".format(len(dets)))
     print("Rectangles of faces {}".format(dets))
     for i, d in enumerate(dets):
+        face = {}
+
         print("Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
             i, d.left(), d.top(), d.right(), d.bottom()))
 
@@ -69,11 +83,40 @@ if len(dets) > 0:
         current_deal = GLASS_IMG.resize((deal_galses_width,
                                          int(deal_galses_width * GLASS_IMG.size[1] / GLASS_IMG.size[0]))
                                         , resample=Image.LANCZOS)
-        current_deal.show()
 
+        current_deal = current_deal.rotate(angle, expand=True)
+        current_deal = current_deal.transpose(Image.FLIP_TOP_BOTTOM)
 
+        face['glass_image'] = current_deal
+        left_eye_x = left_eye[0, 0] - deal_galses_width // 4
+        lefy_eye_y = left_eye[0, 1] - deal_galses_width // 6
+        face['final_pos'] = (left_eye_x, lefy_eye_y)
+        faces.append(face)
 else:
     print("No faces found")
     exit()
 
+# during time of gif
+duration = 4
+
+def make_frame(t):
+    draw_image = img.convert("RGBA")
+
+    if t == 0:
+        return np.asarray(draw_image)
+
+    for face in faces:
+        if t <= duration - 2:
+            current_x = int(face['final_pos'][0])
+            current_y = int(face['final_pos'][1] * t / (duration - 2))
+            draw_image.paste(face['glass_image'], (current_x, current_y), face['glass_image'])
+        else:
+            draw_image.paste(face['glass_image'], face['final_pos'], face['glass_image'])
+            draw_image.paste(DEAL_TEXT_IMG, (75, draw_image.height - 100), DEAL_TEXT_IMG)
+
+    return np.asarray(draw_image)
+
+
+animation = mpy.VideoClip(make_frame, duration=duration)
+animation.write_gif("deal.gif", fps=4)
 
