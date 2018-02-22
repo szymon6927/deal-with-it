@@ -15,8 +15,8 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('shape_predictor_68.dat')
 
 MAX_WIDTH = 500
-DEAL_TEXT_IMG = Image.open("/helpers-img/text.png")
-GLASS_IMG = Image.open("/helpers-img/deals.png")
+DEAL_TEXT_IMG = Image.open("helpers-img/text.png")
+GLASS_IMG = Image.open("helpers-img/deals.png")
 
 img = Image.open(args.image)
 img_width, img_height = img.size
@@ -64,6 +64,13 @@ if len(dets) > 0:
 
         angle = np.rad2deg(np.arctan2(dy, dx))
         print("Angle {}".format(angle))
+
+        # resize glases
+        current_deal = GLASS_IMG.resize((deal_galses_width,
+                                         int(deal_galses_width * GLASS_IMG.size[1] / GLASS_IMG.size[0]))
+                                        , resample=Image.LANCZOS)
+        current_deal.show()
+
 
 else:
     print("No faces found")
