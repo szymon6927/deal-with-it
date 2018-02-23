@@ -10,14 +10,14 @@ import moviepy.editor as mpy
 
 class DealWithIt(object):
 
-    deal_text_img = Image.open("helpers-img/text.png")
-    glass_img = Image.open("helpers-img/deals.png")
-    duration = 4
-
     def __init__(self, image_path, output):
         self.image_path = image_path
         self.output = output
         self.img = None
+        self.deal_text_img = Image.open("helpers-img/text.png")
+        self.glass_img = Image.open("helpers-img/deals.png")
+        self.duration = 4
+        self.faces = None
 
     def load_image(self):
         self.img = Image.open(self.image_path)
@@ -106,32 +106,34 @@ class DealWithIt(object):
             face['final_pos'] = (left_eye_x, left_eye_y)
             faces.append(face)
 
-        print(faces)
         return faces
+
+    def set_faces(self):
+        self.faces = self.scale_and_rotate()
 
     def make_frame(self, t):
         draw_img = self.img.convert('RGBA')  # returns copy of original image
-        faces = self.scale_and_rotate()
-
-        print("t= ".format(t))
 
         if t == 0:
-            return np.asarray(draw_img)
+            return np.asarray(self.img.convert('RGBA'))
 
-        for face in faces:
+        for face in self.faces:
             if t <= self.duration - 2:
                 current_x = int(face['final_pos'][0])
                 current_y = int(face['final_pos'][1] * t / (self.duration - 2))
-                draw_img.paste(face['glasses_image'], (current_x, current_y) , face['glasses_image'])
-        else:
-            draw_img.paste(face['glasses_image'], face['final_pos'], face['glasses_image'])
-            draw_img.paste(self.deal_text_img, (75, draw_img.height - 75), self.deal_text_img)
+                draw_img.paste(face['glasses_image'], (current_x, current_y), face['glasses_image'])
+            else:
+                draw_img.paste(face['glasses_image'], face['final_pos'], face['glasses_image'])
+                draw_img.paste(self.deal_text_img, (75, draw_img.height - 75), self.deal_text_img)
 
         return np.asarray(draw_img)
 
     def make_gif(self):
+        print("Duration(make_gif)= {}".format(self.duration))
         animation = mpy.VideoClip(self.make_frame, duration=self.duration)
-        animation.wirte_gif(self.output, fps=self.duration)
+        print("animation: {}".format(animation))
+        # animation.wirte_gif(self.output, fps=4)
+        animation.to_gif(self.output, fps=4)
 
 
 if __name__ == "__main__":
@@ -142,6 +144,7 @@ if __name__ == "__main__":
     meme = DealWithIt(args.image, args.output)
     meme.load_image()
     meme.scale_img()
+    meme.set_faces()
     meme.make_gif()
 
 
