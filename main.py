@@ -17,7 +17,7 @@ class DealWithIt(object):
         self.deal_text_img = Image.open("helpers-img/text.png")
         self.glass_img = Image.open("helpers-img/deals.png")
         self.duration = 4
-        self.faces = None
+        self.face_elements = []
 
     def load_image(self):
         self.img = Image.open(self.image_path)
@@ -29,6 +29,7 @@ class DealWithIt(object):
         return [img_width, img_height]
 
     def scale_img(self):
+        """Scale image if width grater than 500"""
         max_width = 500
         img_width, img_height = self.get_width_and_height()
         if img_width > 500:
@@ -41,9 +42,10 @@ class DealWithIt(object):
         img_grey = self.img.convert("L")
         return np.array(img_grey)
 
-    def count_glass_width(self, rectangle):
-        print("Deal glasses width: {}".format(rectangle.right() - rectangle.left()))
-        return rectangle.right() - rectangle.left()
+    def count_glass_width(self, rect):
+        """Count meme glass based on face rect"""
+        print("Deal glasses width: {}".format(rect.right() - rect.left()))
+        return rect.right() - rect.left()
 
     def find_faces(self):
         detector = dlib.get_frontal_face_detector()
@@ -64,8 +66,9 @@ class DealWithIt(object):
         return shape
 
     def detect_eye(self, rect):
+        """Select outlines of eyes and return angle and position of left and right eye"""
         shape = self.face_orientation(rect)
-        # grab the outlines of each eye from the input image
+
         left_eye = shape[36:42]
         right_eye = shape[42:48]
 
@@ -79,37 +82,37 @@ class DealWithIt(object):
         angle = np.rad2deg(np.arctan2(dy, dx))
         return [left_eye, right_eye, angle]
 
-    def scale_and_rotate(self):
-        faces = []
+    def set_gif_elements(self):
+        """Set required element for gif animation, like prepared glasses, eye position"""
+        gif_elemets = []
         rects = self.find_faces()
 
         for rect in rects:
-            face = {}
-            print(rect.top(), rect.right(), rect.bottom(), rect.left())
-            shades_width = rect.right() - rect.left()
+            element = {}  # dict for elements animated on final gif
 
-            # resize glasses to fit face width
-            current_deal = self.glass_img.resize((shades_width,
-                                                  int(shades_width * self.glass_img.size[1] / self.glass_img.size[0])),
-                                                 resample=Image.LANCZOS)
+            glases_width = self.count_glass_width(rect)
 
             left_eye, right_eye, angle = self.detect_eye(rect)
+            # resize glasses to face width
+            adjusted_glases = self.glass_img.resize((glases_width,
+                                                    int(glases_width * self.glass_img.size[1]/self.glass_img.size[0])),
+                                                    resample=Image.LANCZOS)
+
             # rotate and flip to fit eye centers
-            current_deal = current_deal.rotate(angle, expand=True)
-            current_deal = current_deal.transpose(Image.FLIP_TOP_BOTTOM)
+            adjusted_glases = adjusted_glases.rotate(angle, expand=True)
+            adjusted_glases = adjusted_glases.transpose(Image.FLIP_TOP_BOTTOM)
 
             # add the scaled image to a list, shift the final position to the
             # left of the leftmost eye
-            face['glasses_image'] = current_deal
-            left_eye_x = left_eye[0, 0] - shades_width // 4
-            left_eye_y = right_eye[0, 1] - shades_width // 6
-            face['final_pos'] = (left_eye_x, left_eye_y)
-            faces.append(face)
+            element['glasses_image'] = adjusted_glases
 
-        return faces
+            left_eye_x = left_eye[0, 0] - glases_width // 5
+            left_eye_y = right_eye[0, 1] - glases_width // 5
+            element['final_eye_pos'] = (left_eye_x, left_eye_y)
 
-    def set_faces(self):
-        self.faces = self.scale_and_rotate()
+            gif_elemets.append(element)
+
+        self.face_elements = gif_elemets
 
     def make_frame(self, t):
         draw_img = self.img.convert('RGBA')  # returns copy of original image
@@ -117,34 +120,35 @@ class DealWithIt(object):
         if t == 0:
             return np.asarray(self.img.convert('RGBA'))
 
-        for face in self.faces:
+        for face in self.face_elements:
             if t <= self.duration - 2:
-                current_x = int(face['final_pos'][0])
-                current_y = int(face['final_pos'][1] * t / (self.duration - 2))
+                current_x = int(face['final_eye_pos'][0])
+                current_y = int(face['final_eye_pos'][1] * t / (self.duration - 2))
                 draw_img.paste(face['glasses_image'], (current_x, current_y), face['glasses_image'])
             else:
-                draw_img.paste(face['glasses_image'], face['final_pos'], face['glasses_image'])
+                draw_img.paste(face['glasses_image'], face['final_eye_pos'], face['glasses_image'])
                 draw_img.paste(self.deal_text_img, (75, draw_img.height - 75), self.deal_text_img)
 
         return np.asarray(draw_img)
 
     def make_gif(self):
-        print("Duration(make_gif)= {}".format(self.duration))
+        self.load_image()
+        self.scale_img()
+        self.set_gif_elements()
         animation = mpy.VideoClip(self.make_frame, duration=self.duration)
-        print("animation: {}".format(animation))
-        # animation.wirte_gif(self.output, fps=4)
         animation.to_gif(self.output, fps=4)
 
 
-if __name__ == "__main__":
+def cli_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-image", required=True, help="path to input image")
     parser.add_argument("-output", required=True, help="name of output gif")
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = cli_parser()
     meme = DealWithIt(args.image, args.output)
-    meme.load_image()
-    meme.scale_img()
-    meme.set_faces()
     meme.make_gif()
 
 
