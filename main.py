@@ -23,9 +23,9 @@ class DealWithIt(object):
         self.img = Image.open(self.image_path)
 
     def get_width_and_height(self):
-        img_width, img_height = self.img
-        print("Width of image is: {0}".format(self.img_width))
-        print("Height of image is: {0}".format(self.img_height))
+        img_width, img_height = self.img.size
+        print("Width of image is: {0}".format(img_width))
+        print("Height of image is: {0}".format(img_height))
         return [img_width, img_height]
 
     def scale_img(self):
@@ -78,8 +78,7 @@ class DealWithIt(object):
         dy = left_eye_center[1] - right_eye_center[1]
         angle = np.rad2deg(np.arctan2(dy, dx))
         return [left_eye, right_eye, angle]
-        
-    
+
     def scale_and_rotate(self):
         faces = []
         rects = self.find_faces()
@@ -90,8 +89,9 @@ class DealWithIt(object):
             shades_width = rect.right() - rect.left()
 
             # resize glasses to fit face width
-            current_deal = self.glass_img.resize((shades_width, int(shades_width * self.glass_img.size[1] / self.glass_img.size[0])),
-                                       resample=Image.LANCZOS)
+            current_deal = self.glass_img.resize((shades_width,
+                                                  int(shades_width * self.glass_img.size[1] / self.glass_img.size[0])),
+                                                 resample=Image.LANCZOS)
 
             left_eye, right_eye, angle = self.detect_eye(rect)
             # rotate and flip to fit eye centers
@@ -106,11 +106,14 @@ class DealWithIt(object):
             face['final_pos'] = (left_eye_x, left_eye_y)
             faces.append(face)
 
+        print(faces)
         return faces
 
     def make_frame(self, t):
-        draw_img = self.img.convert('RGBA') # returns copy of original image
+        draw_img = self.img.convert('RGBA')  # returns copy of original image
         faces = self.scale_and_rotate()
+
+        print("t= ".format(t))
 
         if t == 0:
             return np.asarray(draw_img)
@@ -137,6 +140,9 @@ if __name__ == "__main__":
     parser.add_argument("-output", required=True, help="name of output gif")
     args = parser.parse_args()
     meme = DealWithIt(args.image, args.output)
+    meme.load_image()
+    meme.scale_img()
+    meme.make_gif()
 
 
 
