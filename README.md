@@ -1,6 +1,6 @@
 # deal-wtih-it
 
-##### Popular "deal with it" meme generator with face detection
+### Popular "deal with it" meme generator with face detection
 
 ![Test output gif](test.gif)
 
@@ -40,6 +40,7 @@ To run a application
 python main.py -image your_image_path.jpg -output your_gif_name.gif
 ```
 If your image is too big, don't worry app take care of resize image.
+And if your image contains many faces, don't worry app probably detect them.
 
 Enjoy!
 
